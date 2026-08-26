@@ -34,6 +34,15 @@ LINKAGE_METHOD = "ward"
 MIN_OBSERVATIONS = 100
 TOP_N_DAILY = 3  # Restrict daily allocation to top 3 ETFs
 
+# ETFs that are effectively duplicate/overlapping exposure (e.g. multiple
+# semiconductor-sector funds). When building the top-N daily picks, only
+# the highest-weighted member of each group is eligible to be selected —
+# the rest are skipped in favor of the next-best, genuinely different
+# ticker. Add more groups as you identify other overlapping exposures.
+SIMILARITY_GROUPS = [
+    ["SMH", "SOXX", "XSD"],  # semiconductor ETFs
+]
+
 # Return metric used for the inter-cluster equal-risk-contribution split.
 # 'inverse_variance' (pure risk parity), 'sharpe', 'mean_return', 'return_over_var'
 RETURN_METRIC = "mean_return"  # Use raw annualized returns

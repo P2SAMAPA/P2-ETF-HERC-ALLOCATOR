@@ -146,7 +146,7 @@ def main():
     parser.add_argument("--lookbacks", nargs="+", type=int, default=[504, 630, 756],
                          help="Trading-day lookback windows to compare (default: 504 630 756)")
     parser.add_argument("--rebalance", default="monthly", choices=["monthly", "quarterly"])
-    parser.add_argument("--backtest-start", default="2012-01-01",
+    parser.add_argument("--backtest-start", default="2008-01-01",
                          help="First rebalance date considered (needs lookback+ days of prior history)")
     parser.add_argument("--linkage-method", default=config.LINKAGE_METHOD)
     parser.add_argument("--return-metric", default=config.RETURN_METRIC)

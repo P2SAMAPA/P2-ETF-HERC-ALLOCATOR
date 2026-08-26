@@ -13,10 +13,38 @@ from herc_model import HERCAllocator
 import push_results
 
 
-def get_top_n_weights(weights_dict: dict, n: int = 5) -> dict:
-    """Keep only top N weights and renormalize to 1."""
-    sorted_items = sorted(weights_dict.items(), key=lambda x: x[1], reverse=True)[:n]
-    top_weights = dict(sorted_items)
+def get_top_n_weights(weights_dict: dict, n: int = 5, similarity_groups: list = None) -> dict:
+    """
+    Keep only the top N weights and renormalize to 1.
+
+    If similarity_groups is provided (list of ticker lists representing
+    overlapping/duplicate exposures, e.g. multiple semiconductor ETFs),
+    only the highest-weighted member of each group is eligible — the rest
+    are skipped in favor of the next-best, genuinely different ticker.
+    This keeps the top-N picks actually diversified rather than stacking
+    several near-identical ETFs.
+    """
+    similarity_groups = similarity_groups or []
+    ticker_to_group = {}
+    for gid, group in enumerate(similarity_groups):
+        for t in group:
+            ticker_to_group[t] = gid
+
+    sorted_items = sorted(weights_dict.items(), key=lambda x: x[1], reverse=True)
+
+    selected = []
+    used_groups = set()
+    for ticker, w in sorted_items:
+        gid = ticker_to_group.get(ticker)
+        if gid is not None and gid in used_groups:
+            continue  # a higher-ranked ETF from the same group is already selected
+        selected.append((ticker, w))
+        if gid is not None:
+            used_groups.add(gid)
+        if len(selected) == n:
+            break
+
+    top_weights = dict(selected)
     total = sum(top_weights.values())
     return {k: v / total for k, v in top_weights.items()}
 
@@ -54,7 +82,7 @@ def run_herc_allocation():
 
         weights = allocator.allocate(recent_returns)
         daily_full[universe_name] = weights
-        daily_top5[universe_name] = get_top_n_weights(weights, config.TOP_N_DAILY)
+        daily_top5[universe_name] = get_top_n_weights(weights, config.TOP_N_DAILY, config.SIMILARITY_GROUPS)
 
         linkage, original_tickers = allocator.get_linkage_and_labels()
         if linkage is not None and original_tickers is not None:

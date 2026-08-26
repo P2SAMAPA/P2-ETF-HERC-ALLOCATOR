@@ -28,6 +28,15 @@ Results are pushed daily to a dedicated Hugging Face dataset and visualized via 
 | **Equity Sectors**   | SPY, QQQ, XLK, XLF, XLE, XLV, XLI, XLY, XLP, XLU, GDX, XME, IWF, XSD, XBI, IWM (plus extended sector/factor set — see `config.py`) |
 | **Combined**         | All tickers above                                                              |
 
+### Diversified top-N picks
+
+The daily top-3 selection avoids picking multiple overlapping/duplicate
+ETFs together — e.g. SMH, SOXX, and XSD are all semiconductor-sector
+funds, so if the top-weighted pick is SMH, SOXX and XSD are skipped in
+favor of the next-best, genuinely different ticker. Groups are defined in
+`config.SIMILARITY_GROUPS` and can be extended with other overlapping
+exposures (e.g. multiple gold miners, multiple biotech funds) as needed.
+
 Data is sourced from: [`P2SAMAPA/fi-etf-macro-signal-master-data`](https://huggingface.co/datasets/P2SAMAPA/fi-etf-macro-signal-master-data) — the **same master data source** used by the sibling HRP repo.
 
 ## Methodology
@@ -86,11 +95,15 @@ research tool, not something meant to run daily.
 
 ```
 export HF_TOKEN="your_token_here"
-python backtest_lookback.py --universe COMBINED --rebalance monthly --backtest-start 2012-01-01
+python backtest_lookback.py --universe COMBINED --rebalance monthly --backtest-start 2008-01-01
 ```
 
 (All three lookbacks — 504/630/756 — run automatically; pass `--lookbacks`
-yourself only if you want to override that set.)
+yourself only if you want to override that set. `--backtest-start` defaults
+to 2008-01-01 since the underlying master data goes back that far — early
+rebalances are automatically skipped until enough trailing history exists
+for a given lookback, so the 2008–2009 crisis period naturally enters the
+504/630/756-day windows once available rather than causing errors.)
 
 Results (comparison CSV, equity-curve PNG, raw weights JSON) are saved to
 `./backtest_results/` and, if `HF_TOKEN` is set, also pushed to the same
