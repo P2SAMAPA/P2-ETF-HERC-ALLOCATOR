@@ -1,0 +1,65 @@
+name: Backtest Lookback Comparison (504 vs 630 vs 756, Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      universe:
+        description: "Universe to backtest"
+        required: false
+        default: "COMBINED"
+        type: choice
+        options:
+          - COMBINED
+          - EQUITY_SECTORS
+          - FI_COMMODITIES
+      rebalance:
+        description: "Rebalance frequency"
+        required: false
+        default: "monthly"
+        type: choice
+        options:
+          - monthly
+          - quarterly
+      backtest_start:
+        description: "Backtest start date (YYYY-MM-DD)"
+        required: false
+        default: "2012-01-01"
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run lookback backtest (504 vs 630 vs 756 days)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python backtest_lookback.py \
+            --universe "${{ github.event.inputs.universe }}" \
+            --lookbacks 504 630 756 \
+            --rebalance "${{ github.event.inputs.rebalance }}" \
+            --backtest-start "${{ github.event.inputs.backtest_start }}"
+
+      # Results are pushed to the HF results dataset under backtests/ by
+      # backtest_lookback.py itself. They're also attached here as a
+      # workflow artifact so you can download them straight from the
+      # Actions run summary without touching Hugging Face.
+      - name: Upload results as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-results-${{ github.event.inputs.universe }}-${{ github.event.inputs.rebalance }}
+          path: backtest_results/
+          retention-days: 30

@@ -75,6 +75,39 @@ streamlit run streamlit_app.py
 - **Cluster Dendrogram:** Understand how assets are grouped by correlation, with the gap-statistic cluster cut highlighted.
 - **Three Tabs:** Separate views for Combined, Equity, and FI/Commodities universes.
 
+## Backtesting Lookback Windows
+
+`backtest_lookback.py` runs a walk-forward comparison of HERC performance
+across three lookback windows — **504, 630, and 756 trading days** — using
+monthly or quarterly rebalancing with no lookahead. This is a one-off
+research tool, not something meant to run daily.
+
+**Locally:**
+
+```
+export HF_TOKEN="your_token_here"
+python backtest_lookback.py --universe COMBINED --rebalance monthly --backtest-start 2012-01-01
+```
+
+(All three lookbacks — 504/630/756 — run automatically; pass `--lookbacks`
+yourself only if you want to override that set.)
+
+Results (comparison CSV, equity-curve PNG, raw weights JSON) are saved to
+`./backtest_results/` and, if `HF_TOKEN` is set, also pushed to the same
+results dataset (`HF_OUTPUT_REPO`) under a timestamped `backtests/`
+subfolder — alongside the daily `herc_weights_*.json` files, without
+overwriting them. Pass `--no-push` to save locally only.
+
+**From GitHub Actions (no local setup needed):**
+
+Go to **Actions → Backtest Lookback Comparison (504 vs 630 vs 756, Manual)
+→ Run workflow**, choose the universe, rebalance frequency, and start
+date, then run it — all three lookback windows are always compared in a
+single run. Make sure `HF_TOKEN` is set as a repo secret first (Settings →
+Secrets → Actions). Results are pushed to the HF dataset the same way as a
+local run, and are also attached to the workflow run as a downloadable
+artifact under the run summary.
+
 ## Before you run this
 
 The `push_results.py` / `streamlit_app.py` files point at:

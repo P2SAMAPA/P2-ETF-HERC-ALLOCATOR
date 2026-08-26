@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 
 import config
 import data_manager
+import push_results
 from herc_model import HERCAllocator
 
 
@@ -142,7 +143,8 @@ def run_backtest(returns_matrix: pd.DataFrame, lookback: int, rebalance_freq: st
 def main():
     parser = argparse.ArgumentParser(description="Backtest HERC across lookback windows")
     parser.add_argument("--universe", default="COMBINED", choices=list(config.UNIVERSES.keys()))
-    parser.add_argument("--lookbacks", nargs="+", type=int, default=[504, 756])
+    parser.add_argument("--lookbacks", nargs="+", type=int, default=[504, 630, 756],
+                         help="Trading-day lookback windows to compare (default: 504 630 756)")
     parser.add_argument("--rebalance", default="monthly", choices=["monthly", "quarterly"])
     parser.add_argument("--backtest-start", default="2012-01-01",
                          help="First rebalance date considered (needs lookback+ days of prior history)")
@@ -151,6 +153,10 @@ def main():
     parser.add_argument("--n-clusters", type=int, default=None)
     parser.add_argument("--max-clusters", type=int, default=config.MAX_CLUSTERS)
     parser.add_argument("--out-dir", default="./backtest_results")
+    parser.add_argument("--push", dest="push", action="store_true", default=True,
+                         help="Push results to the HF results dataset under backtests/ (default: on if HF_TOKEN is set)")
+    parser.add_argument("--no-push", dest="push", action="store_false",
+                         help="Skip uploading results to Hugging Face; only save locally")
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -215,6 +221,20 @@ def main():
             f, indent=2, default=str
         )
     print(f"Saved raw results: {json_path}")
+
+    # --- Push to Hugging Face (same results dataset, backtests/ subfolder) ---
+    if args.push:
+        if config.HF_TOKEN:
+            run_stamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+            remote_folder = f"backtests/{args.universe}_{args.rebalance}_{run_stamp}"
+            for local_path in (csv_path, png_path, json_path):
+                push_results.push_file(local_path, f"{remote_folder}/{os.path.basename(local_path)}")
+            print(f"\nAll backtest artifacts pushed to "
+                  f"{config.HF_OUTPUT_REPO}/{remote_folder}/")
+        else:
+            print("\nHF_TOKEN not set — skipped upload, results saved locally only.")
+    else:
+        print("\n--no-push set — results saved locally only.")
 
 
 if __name__ == "__main__":
