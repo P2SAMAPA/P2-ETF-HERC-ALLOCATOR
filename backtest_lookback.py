@@ -42,6 +42,38 @@ def get_rebalance_dates(dates: pd.DatetimeIndex, freq: str) -> list:
     return sorted([grp.max() for _, grp in grouped])
 
 
+def filter_tickers_by_coverage(df_master: pd.DataFrame, tickers: list, start_date: str,
+                                buffer_days: int = 30) -> tuple:
+    """
+    Backtest-only convenience: drop tickers that don't have data back to
+    (roughly) start_date, so the remaining universe can be backtested as
+    far back as the data allows without prepare_returns_matrix's dropna()
+    truncating everything to the youngest ticker's inception date.
+
+    Does NOT touch config.UNIVERSES or the daily engine — this filtering
+    only applies within this backtest run.
+
+    Returns (kept_tickers, dropped_list) where dropped_list is
+    [(ticker, first_available_date_or_None), ...].
+    """
+    df = df_master.set_index('Date') if 'Date' in df_master.columns else df_master
+    cutoff = pd.Timestamp(start_date) + pd.Timedelta(days=buffer_days)
+
+    kept, dropped = [], []
+    for t in tickers:
+        if t not in df.columns:
+            dropped.append((t, None))
+            continue
+        series = df[t].dropna()
+        first_date = series.index.min() if not series.empty else None
+        if first_date is not None and first_date <= cutoff:
+            kept.append(t)
+        else:
+            dropped.append((t, first_date))
+
+    return kept, dropped
+
+
 def turnover(prev_weights: dict, new_weights: dict) -> float:
     tickers = set(prev_weights) | set(new_weights)
     return sum(abs(new_weights.get(t, 0.0) - prev_weights.get(t, 0.0)) for t in tickers) / 2.0
@@ -153,6 +185,17 @@ def main():
     parser.add_argument("--n-clusters", type=int, default=None)
     parser.add_argument("--max-clusters", type=int, default=config.MAX_CLUSTERS)
     parser.add_argument("--out-dir", default="./backtest_results")
+    parser.add_argument("--require-full-coverage", dest="require_full_coverage",
+                         action="store_true", default=True,
+                         help="Drop tickers without data back to --backtest-start so the "
+                              "universe can be backtested that far back (default: on)")
+    parser.add_argument("--no-require-full-coverage", dest="require_full_coverage",
+                         action="store_false",
+                         help="Keep all universe tickers even if some truncate the usable "
+                              "history to their inception date")
+    parser.add_argument("--coverage-buffer-days", type=int, default=30,
+                         help="Grace period (days) added to --backtest-start when checking "
+                              "ticker coverage, to allow for inception-date/weekend noise")
     parser.add_argument("--push", dest="push", action="store_true", default=True,
                          help="Push results to the HF results dataset under backtests/ (default: on if HF_TOKEN is set)")
     parser.add_argument("--no-push", dest="push", action="store_false",
@@ -164,6 +207,21 @@ def main():
     print(f"Loading master data...")
     df_master = data_manager.load_master_data()
     tickers = config.UNIVERSES[args.universe]
+
+    dropped = []
+    if args.require_full_coverage:
+        tickers, dropped = filter_tickers_by_coverage(
+            df_master, tickers, args.backtest_start, args.coverage_buffer_days
+        )
+        if dropped:
+            print(f"\nDropping {len(dropped)} ticker(s) without data back to "
+                  f"{args.backtest_start} (backtest-only filter; config.UNIVERSES / "
+                  f"daily engine are unaffected):")
+            for t, d in dropped:
+                print(f"    - {t}: first available {'N/A' if d is None else d.date()}")
+        print(f"Backtest universe '{args.universe}': using {len(tickers)} of "
+              f"{len(config.UNIVERSES[args.universe])} tickers.")
+
     returns_matrix = data_manager.prepare_returns_matrix(df_master, tickers)
     print(f"Universe '{args.universe}': {returns_matrix.shape[1]} tickers, "
           f"{len(returns_matrix)} observations from {returns_matrix.index.min().date()} "
@@ -216,8 +274,15 @@ def main():
     json_path = os.path.join(args.out_dir, f"raw_results_{args.universe}_{args.rebalance}.json")
     with open(json_path, "w") as f:
         json.dump(
-            {str(lb): {"metrics": res["metrics"], "weights_history": res["weights_history"]}
-             for lb, res in results.items()},
+            {
+                "universe_tickers_used": list(returns_matrix.columns),
+                "tickers_dropped_for_coverage": [
+                    {"ticker": t, "first_available": None if d is None else d.strftime("%Y-%m-%d")}
+                    for t, d in dropped
+                ],
+                "results": {str(lb): {"metrics": res["metrics"], "weights_history": res["weights_history"]}
+                            for lb, res in results.items()}
+            },
             f, indent=2, default=str
         )
     print(f"Saved raw results: {json_path}")

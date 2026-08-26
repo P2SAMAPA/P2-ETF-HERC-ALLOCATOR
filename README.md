@@ -100,10 +100,17 @@ python backtest_lookback.py --universe COMBINED --rebalance monthly --backtest-s
 
 (All three lookbacks — 504/630/756 — run automatically; pass `--lookbacks`
 yourself only if you want to override that set. `--backtest-start` defaults
-to 2008-01-01 since the underlying master data goes back that far — early
-rebalances are automatically skipped until enough trailing history exists
-for a given lookback, so the 2008–2009 crisis period naturally enters the
-504/630/756-day windows once available rather than causing errors.)
+to 2008-01-01 since the underlying master data goes back that far.)
+
+**Ticker coverage filter:** by default, any ticker without data back to
+`--backtest-start` (e.g. a fund that IPO'd more recently) is **dropped
+from the backtest universe only** — so a single young ETF doesn't truncate
+the whole universe's usable history to its inception date. The dropped
+tickers and the surviving universe are printed at the start of the run
+and saved in `raw_results_*.json`. This is purely a backtest-time
+convenience for research purposes — it never touches `config.UNIVERSES`
+or the daily engine. Pass `--no-require-full-coverage` to keep all
+tickers and accept the shorter combined history instead.
 
 Results (comparison CSV, equity-curve PNG, raw weights JSON) are saved to
 `./backtest_results/` and, if `HF_TOKEN` is set, also pushed to the same
