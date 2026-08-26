@@ -28,7 +28,7 @@ UNIVERSES = {
 }
 
 # --- HERC Parameters ---
-LOOKBACK_WINDOW = 504  # 2-year lookback for daily trading
+LOOKBACK_WINDOW = 756  # 4-year lookback for daily trading
 SHRINKING_WINDOW_START_YEARS = list(range(2008, 2025))
 LINKAGE_METHOD = "ward"
 MIN_OBSERVATIONS = 100
