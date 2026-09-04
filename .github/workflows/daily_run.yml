@@ -2,8 +2,8 @@ name: Daily Run
 
 on:
   schedule:
-    # 23:30 UTC, Mon-Sat (after US market close) — adjust to match your HRP repo's schedule
-    - cron: "30 23 * * 1-6"
+    # 22:30 UTC, Mon-Sat (after US market close) — adjust to match your HRP repo's schedule
+    - cron: "30 22 * * 1-6"
   workflow_dispatch: {}
 
 jobs:
